@@ -1,0 +1,55 @@
+# Inherits from base config with inference optimizations
+_base_: "base.yaml"
+
+# Inference-specific settings
+inference:
+  device: "cuda"  # Can override to "cpu" for deployment
+  batch_size: 8
+  threshold: 0.65  # Higher threshold for production
+  tta:  # Test-time augmentation
+    enable: true
+    merges: ["mean"]
+    augmentations:
+      - name: "HorizontalFlip"
+        params: {p: 1.0}
+      - name: "VerticalFlip"
+        params: {p: 0.5}
+
+# Post-processing enhancements
+postprocessing:
+  min_defect_area: 100  # Filter small noise
+  merge_close_defects: true
+  merge_distance: 20
+  smoothing:
+    kernel_size: 5
+    method: "gaussian"
+
+# Performance optimizations
+performance:
+  half_precision: true  # FP16 inference
+  onnx_runtime: false  # Set to true if using ONNX
+  tensorrt: false      # Set to true if using TensorRT
+  memory:
+    max_workspace_size: 1024  # MB
+
+# API defaults
+api:
+  max_request_size: "10MB"
+  rate_limit: "100/minute"
+  response:
+    include_heatmap: true
+    include_contours: false
+    format: "json"  # or "binary" for raw mask
+
+# Monitoring
+monitoring:
+  prometheus:
+    enabled: true
+    port: 8001
+    metrics:
+      - name: "inference_latency"
+        type: "histogram"
+        buckets: [0.1, 0.5, 1.0, 2.0]
+      - name: "defect_counts"
+        type: "counter"
+        labels: ["class_id"]

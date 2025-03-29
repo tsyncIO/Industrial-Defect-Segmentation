@@ -1,0 +1,112 @@
+# configs/base.yaml - Base configuration shared across all environments
+
+# Project metadata
+project:
+  name: "steel-defect-detection"
+  version: "1.0.0"
+  description: "Steel defect detection using deep learning"
+
+# Model configuration
+model:
+  architecture: "unet"
+  encoder: "resnet18"
+  encoder_weights: "imagenet"
+  classes: 4
+  activation: null
+  input_size: [256, 1600, 3]
+  pretrained_weights: "models/best_model.pth"
+
+# Data configuration
+data:
+  root_dir: "data/raw"
+  train:
+    images_dir: "train_images"
+    csv_path: "train.csv"
+    batch_size: 8
+    shuffle: true
+  val:
+    images_dir: "train_images"  # Same as train in this dataset
+    csv_path: "val.csv"
+    batch_size: 8
+    shuffle: false
+  test:
+    images_dir: "test_images"
+    batch_size: 4
+  normalization:
+    mean: [0.485, 0.456, 0.406]  # ImageNet stats
+    std: [0.229, 0.224, 0.225]    # ImageNet stats
+
+# Training configuration
+training:
+  device: "cuda"  # Will fall back to CPU if CUDA not available
+  epochs: 25
+  optimizer:
+    name: "adam"
+    lr: 1e-4
+    weight_decay: 1e-5
+  loss: "bce_with_logits"
+  metrics: ["iou", "dice", "accuracy"]
+  checkpoint:
+    dir: "models/checkpoints"
+    frequency: 1  # Save every epoch
+  early_stopping:
+    patience: 5
+    min_delta: 0.001
+  lr_scheduler:
+    name: "reduce_on_plateau"
+    factor: 0.1
+    patience: 3
+
+# Inference configuration
+inference:
+  threshold: 0.5
+  batch_size: 4
+  postprocessing:
+    min_defect_area: 50  # pixels
+    merge_close_defects: true
+    merge_distance: 10   # pixels
+
+# Logging configuration
+logging:
+  dir: "logs/"
+  level: "INFO"
+  formats:
+    file: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    console: "%(levelname)s - %(message)s"
+  tensorboard: true
+  mlflow:
+    tracking_uri: null  # Set to MLFlow server URI if using
+    experiment_name: "steel-defect"
+
+# API configuration
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 2
+  log_level: "info"
+  timeout: 60
+  monitoring:
+    prometheus: true
+    port: 8001
+  cors:
+    allow_origins: ["*"]
+    allow_methods: ["*"]
+    allow_headers: ["*"]
+
+# Augmentations (shared between train/val)
+augmentations:
+  train:
+    - name: "HorizontalFlip"
+      params: {p: 0.5}
+    - name: "ShiftScaleRotate"
+      params: {shift_limit: 0.1, scale_limit: 0.1, rotate_limit: 10, p: 0.5}
+    - name: "GaussNoise"
+      params: {p: 0.2}
+  val:
+    - name: "Resize"
+      params: {height: 256, width: 1600}
+  both:
+    - name: "Normalize"
+      params: {mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225], p: 1}
+    - name: "ToTensorV2"
+      params: {}
